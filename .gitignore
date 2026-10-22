@@ -4,3 +4,7 @@ obj/
 *.user
 *.suo
 appsettings.Development.json
+.env
+.env.*
+!.env.example
+roadmap.txt

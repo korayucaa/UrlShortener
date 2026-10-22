@@ -217,34 +217,30 @@ namespace UrlShortener.Api.Services
                 if (url == null)
                     return null;
             }
+            // 3. Tıklama sayısını PostgreSQL'de atomik olarak artır.
+            var updatedRows = await _context.ShortUrls
+                .Where(u => u.ShortCode == shortCode)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        u => u.ClickCount,
+                        u => u.ClickCount + 1));
 
-            // 3. Tıklama sayısını PostgreSQL'de atomik artır.
-            // Aynı ziyaretçinin paste + Enter gibi ardışık isteklerini tek tıklama say.
-            //if (ShouldIncrementClick(shortCode, visitorKey))
-            //{
-            //    var updatedRows = await _context.ShortUrls
-            //        .Where(u => u.ShortCode == shortCode)
-            //        .ExecuteUpdateAsync(setters => setters
-            //            .SetProperty(
-            //                u => u.ClickCount,
-            //                u => u.ClickCount + 1));
+            if (updatedRows == 0)
+            {
+                try
+                {
+                    await _cache.KeyDeleteAsync(cacheKey);
+                }
+                catch (RedisException ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Silinmiş URL'nin Redis kaydı temizlenemedi.");
+                }
 
-            //    if (updatedRows == 0)
-            //    {
-            //        try
-            //        {
-            //            await _cache.KeyDeleteAsync(cacheKey);
-            //        }
-            //        catch (RedisException ex)
-            //        {
-            //            _logger.LogWarning(
-            //                ex,
-            //                "Silinmiş URL'nin Redis kaydı temizlenemedi.");
-            //        }
+                return null;
+            }
 
-            //        return null;
-            //    }
-            //}
 
             // 4. Yalnızca cache miss durumunda Redis'e yaz.
             if (!cacheHit)
@@ -269,25 +265,6 @@ namespace UrlShortener.Api.Services
             }
 
             return url;
-        }
-
-
-
-        private bool ShouldIncrementClick(string shortCode, string visitorKey)
-        {
-            var dedupKey = $"click:{shortCode}:{visitorKey}";
-
-            if (_memoryCache.TryGetValue(dedupKey, out _))
-            {
-                _logger.LogInformation(
-                    "CLICK DEDUP: {ShortCode} {VisitorKey}",
-                    shortCode,
-                    visitorKey);
-                return false;
-            }
-
-            _memoryCache.Set(dedupKey, true, ClickDedupWindow);
-            return true;
         }
 
         private async Task<string> GenerateUniqueShortCodeAsync()
