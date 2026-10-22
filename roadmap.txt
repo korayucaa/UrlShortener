@@ -1,0 +1,30 @@
+﻿Projenin yol haritası
+Aşama	İçerik	Durum
+1	ASP.NET Core API ve Swagger	✅ Tamamlandı
+2	PostgreSQL ve Entity Framework Core	✅ Tamamlandı
+3	Redis önbellekleme	✅ Temel işlevler test edildi
+4	URL yönlendirme, silme ve tıklama sayacı	✅ Temel işlevler tamamlandı
+
+
+5	Eşzamanlı istekler ve hata yönetimi	🔜 Sırada
+6	Docker Compose ile tüm sistemi birlikte çalıştırma	🔜 Sırada
+7	Birim ve entegrasyon testleri	🔜 Sırada
+8	API güvenliği ve kullanım sınırları	🔜 İleri geliştirme
+9	GitHub README, mimari açıklama ve örnekler	🔜 Son aşama
+
+
+
+Daha sonra neler ekleyebiliriz?
+Bunlar ilk sürümün bitmesi için zorunlu değil; projeyi daha profesyonel hâle getirecek özellikler:
+- Kullanıcı sistemi: Her kullanıcının kendi kısa URL'lerini yönetmesi.
+- Özel kısa kodlar: Kullanıcının localhost:7152/koray gibi bir kod belirleyebilmesi.
+- Son kullanma tarihi: Belirli bir tarihten sonra bağlantının geçersiz olması.
+- İstatistikler: Tıklanma sayısı, zaman bilgisi ve günlük kullanım grafikleri.
+- Dağıtım: Projeyi internette erişilebilir bir sunucuya yayınlama.
+
+
+
+
+Secret list  que >> dotnet user-secrets list
+
+ConnectionStrings:DefaultConnection = Host=localhost;Port=5432;Database=UrlShortenerDb;Username=postgres;Password=koray
