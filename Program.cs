@@ -35,6 +35,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 var app = builder.Build();
 
 // Global hata yönetimi
+// Global hata yönetimi
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -42,24 +43,35 @@ app.UseExceptionHandler(errorApp =>
         var exceptionFeature = context.Features
             .Get<IExceptionHandlerFeature>();
 
-        if (exceptionFeature != null)
-        {
-            var logger = context.RequestServices
-                .GetRequiredService<ILogger<Program>>();
+        var exception = exceptionFeature?.Error;
 
+        var logger = context.RequestServices
+            .GetRequiredService<ILogger<Program>>();
+
+        if (exception != null)
+        {
             logger.LogError(
-                exceptionFeature.Error,
-                "Beklenmeyen bir hata oluþtu.");
+                exception,
+                "Bir hata oluþtu.");
         }
 
-        context.Response.StatusCode =
-            StatusCodes.Status500InternalServerError;
+        var statusCode = exception switch
+        {
+            ArgumentException => StatusCodes.Status400BadRequest,
+            _ => StatusCodes.Status500InternalServerError
+        };
 
+        context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
+
+        var message = statusCode == StatusCodes.Status400BadRequest
+            ? exception!.Message
+            : "Beklenmeyen bir hata oluþtu.";
 
         await context.Response.WriteAsJsonAsync(new
         {
-            message = "Beklenmeyen bir hata oluþtu."
+            status = statusCode,
+            message
         });
     });
 });
@@ -71,14 +83,22 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseAuthorization();
 
-using (var scope = app.Services.CreateScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+    }
 }
 
 app.MapControllers();
 app.Run();
+public partial class Program { }

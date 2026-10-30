@@ -68,7 +68,7 @@ namespace UrlShortener.Api.Controllers
 
 
 
-        [HttpGet("/{shortCode}")]
+        [AcceptVerbs("GET", "HEAD", Route = "/{shortCode}")]
         public async Task<IActionResult> RedirectToOriginalUrl(string shortCode)
         {
             if (IsSpeculativeRequest(Request))

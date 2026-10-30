@@ -31,6 +31,24 @@ namespace UrlShortener.Api.Services
 
         public async Task<ShortUrl> CreateUrlAsync(string originalUrl)
         {
+            // 1. Boş veya geçersiz URL kontrolü.
+            if (string.IsNullOrWhiteSpace(originalUrl))
+            {
+                throw new ArgumentException("URL boş olamaz.");
+            }
+
+            // 2. Başındaki ve sonundaki boşlukları temizle.
+            originalUrl = originalUrl.Trim();
+
+            // 3. URL formatını ve protokolünü kontrol et.
+            if (!Uri.TryCreate(originalUrl, UriKind.Absolute, out var uri) ||
+                (uri.Scheme != Uri.UriSchemeHttp &&
+                 uri.Scheme != Uri.UriSchemeHttps))
+            {
+                throw new ArgumentException("Geçerli bir HTTP veya HTTPS adresi girilmelidir.");
+            }
+
+            // 4. URL geçerliyse veritabanına kaydet.
             var shortUrl = new ShortUrl
             {
                 OriginalUrl = originalUrl,

@@ -20,5 +20,9 @@
     <PackageReference Include="StackExchange.Redis" Version="3.4.5" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.0" />
   </ItemGroup>
-
+  <ItemGroup>
+    <Compile Remove="UrlShortener.Api.Tests/**/*.cs" />
+    <Content Remove="UrlShortener.Api.Tests/**" />
+    <None Remove="UrlShortener.Api.Tests/**" />
+  </ItemGroup>
 </Project>
