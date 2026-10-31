@@ -1,0 +1,29 @@
+name: .NET Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository kodunu indir
+        uses: actions/checkout@v4
+
+      - name: .NET 8 kur
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: NuGet paketlerini yükle
+        run: dotnet restore
+
+      - name: Projeyi derle
+        run: dotnet build --no-restore
+
+      - name: Testleri çalıştır
+        run: dotnet test ./UrlShortener.Api.Tests/UrlShortener.Api.Tests.csproj --no-build --verbosity normal
