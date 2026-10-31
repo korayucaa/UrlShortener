@@ -26,4 +26,4 @@ jobs:
         run: dotnet build --no-restore
 
       - name: Testleri çalıştır
-        run: dotnet test ./UrlShortener.Api.Tests/UrlShortener.Api.Tests.csproj --no-build --verbosity normal
+        run: dotnet test ./UrlShortener.Api.Tests/UrlShortener.Api.Tests.csproj --verbosity normal
