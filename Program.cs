@@ -1,14 +1,30 @@
-
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
+using System.Threading.RateLimiting;
 using UrlShortener.Api.Data;
 using UrlShortener.Api.Services;
-using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Servisler
 builder.Services.AddControllers();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("CreateUrlPolicy", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -33,7 +49,6 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 
 var app = builder.Build();
-
 // Global hata yönetimi
 // Global hata yönetimi
 app.UseExceptionHandler(errorApp =>
@@ -98,7 +113,7 @@ if (!app.Environment.IsEnvironment("Testing"))
         db.Database.Migrate();
     }
 }
-
+app.UseRateLimiter();
 app.MapControllers();
 app.Run();
 public partial class Program { }

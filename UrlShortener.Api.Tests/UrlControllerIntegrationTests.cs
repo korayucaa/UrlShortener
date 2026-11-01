@@ -305,4 +305,37 @@ public class UrlControllerIntegrationTests
 
         Assert.Equal(0, savedUrl.ClickCount);
     }
+    [Fact]
+    public async Task CreateUrl_ShouldReturn429_WhenRateLimitIsExceeded()
+    {
+        // Arrange
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var request = new
+        {
+            OriginalUrl = "https://www.google.com"
+        };
+
+        // İlk 10 istek başarılı olmalı.
+        for (int i = 0; i < 10; i++)
+        {
+            var response = await client.PostAsJsonAsync(
+                "/api/Urls",
+                request);
+
+            Assert.Equal(
+                HttpStatusCode.Created,
+                response.StatusCode);
+        }
+
+        // 11. istek reddedilmeli.
+        var rejectedResponse = await client.PostAsJsonAsync(
+            "/api/Urls",
+            request);
+
+        Assert.Equal(
+            HttpStatusCode.TooManyRequests,
+            rejectedResponse.StatusCode);
+    }
 }

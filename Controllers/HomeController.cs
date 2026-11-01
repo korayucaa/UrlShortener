@@ -4,6 +4,7 @@ using UrlShortener.Api.Data;
 using UrlShortener.Api.Models;
 using UrlShortener.Api.DTOs;
 using UrlShortener.Api.Services;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace UrlShortener.Api.Controllers
 {
@@ -53,7 +54,7 @@ namespace UrlShortener.Api.Controllers
         }
 
 
-
+        [EnableRateLimiting("CreateUrlPolicy")]
         [HttpPost]
         public async Task<IActionResult> CreateUrl(
             [FromBody] CreateUrlRequest request)
