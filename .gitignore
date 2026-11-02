@@ -8,3 +8,4 @@ appsettings.Development.json
 .env.*
 !.env.example
 roadmap.txt
+roadmap2.txt

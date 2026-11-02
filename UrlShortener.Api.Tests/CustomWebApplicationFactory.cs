@@ -7,6 +7,7 @@ using Microsoft.Data.Sqlite;
 using Moq;
 using StackExchange.Redis;
 using UrlShortener.Api.Data;
+using Microsoft.Extensions.Configuration;
 
 namespace UrlShortener.Api.Tests;
 
@@ -20,6 +21,14 @@ public class CustomWebApplicationFactory
         IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.ConfigureAppConfiguration((context, configuration) =>
+        {
+            configuration.AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["ApiKey:Key"] = "test-api-key"
+                });
+        });
 
         builder.ConfigureServices(services =>
         {
@@ -54,6 +63,14 @@ public class CustomWebApplicationFactory
         });
     }
 
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+
+        client.DefaultRequestHeaders.Add(
+            "X-API-Key",
+            "test-api-key");
+    }
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);

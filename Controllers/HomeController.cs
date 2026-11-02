@@ -5,9 +5,11 @@ using UrlShortener.Api.Models;
 using UrlShortener.Api.DTOs;
 using UrlShortener.Api.Services;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Authorization;
 
 namespace UrlShortener.Api.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class UrlsController : ControllerBase
@@ -68,7 +70,7 @@ namespace UrlShortener.Api.Controllers
         }
 
 
-
+        [AllowAnonymous]
         [AcceptVerbs("GET", "HEAD", Route = "/{shortCode}")]
         public async Task<IActionResult> RedirectToOriginalUrl(string shortCode)
         {

@@ -76,7 +76,7 @@ public class UrlControllerIntegrationTests
             UrlShortener.Api.DTOs.ShortUrlResponse>();
 
         Assert.NotNull(createdUrl);
-
+        _client.DefaultRequestHeaders.Remove("X-API-Key");
         // Act
         var redirectResponse = await _client.GetAsync(
             $"/{createdUrl.ShortCode}");
@@ -337,5 +337,30 @@ public class UrlControllerIntegrationTests
         Assert.Equal(
             HttpStatusCode.TooManyRequests,
             rejectedResponse.StatusCode);
+    }
+    [Fact]
+    public async Task GetUrls_ShouldReturn401_WhenApiKeyIsMissing()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        client.DefaultRequestHeaders.Remove("X-API-Key");
+
+        var response = await client.GetAsync("/api/Urls");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+    [Fact]
+    public async Task GetUrls_ShouldReturn401_WhenApiKeyIsInvalid()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        client.DefaultRequestHeaders.Remove("X-API-Key");
+        client.DefaultRequestHeaders.Add("X-API-Key", "wrong-api-key");
+
+        var response = await client.GetAsync("/api/Urls");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 }

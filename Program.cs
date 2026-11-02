@@ -5,11 +5,26 @@ using StackExchange.Redis;
 using System.Threading.RateLimiting;
 using UrlShortener.Api.Data;
 using UrlShortener.Api.Services;
+using UrlShortener.Api.Authentication;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Servisler
 builder.Services.AddControllers();
+// API Key Authentication
+builder.Services
+    .AddAuthentication("ApiKey")
+    .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+        "ApiKey",
+        options =>
+        {
+            options.ApiKey = builder.Configuration["ApiKey:Key"]
+                ?? throw new InvalidOperationException(
+                    "ApiKey:Key yapýlandýrmasý bulunamadý.");
+        });
+
+builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -26,8 +41,24 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    // API Key tanýmlamasý
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Description = "API Key deðerini girin.",
+        Name = "X-API-Key",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey
+    });
 
+    // Swagger isteklerine API Key eklenmesini saðla
+    options.AddSecurityRequirement(document =>
+        new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("ApiKey", document)] = []
+        });
+});
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -102,7 +133,7 @@ if (!app.Environment.IsEnvironment("Testing"))
 {
     app.UseHttpsRedirection();
 }
-
+app.UseAuthentication();
 app.UseAuthorization();
 
 if (!app.Environment.IsEnvironment("Testing"))
