@@ -1,5 +1,4 @@
-﻿
-namespace UrlShortener.Api.DTOs
+﻿namespace UrlShortener.Api.DTOs
 {
     public class ShortUrlResponse
     {
@@ -10,6 +9,8 @@ namespace UrlShortener.Api.DTOs
         public string ShortCode { get; set; } = string.Empty;
 
         public DateTime CreatedAt { get; set; }
+
+        public DateTime? ExpiresAt { get; set; }
 
         public int ClickCount { get; set; }
     }

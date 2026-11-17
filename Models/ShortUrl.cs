@@ -10,6 +10,12 @@
 
         public DateTime CreatedAt { get; set; }
 
+        public DateTime? ExpiresAt { get; set; }
+
         public int ClickCount { get; set; }
+        public int? UserId { get; set; }
+
+        public User? User { get; set; }
+
     }
 }

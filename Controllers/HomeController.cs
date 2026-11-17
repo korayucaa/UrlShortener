@@ -1,11 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using UrlShortener.Api.Data;
-using UrlShortener.Api.Models;
-using UrlShortener.Api.DTOs;
-using UrlShortener.Api.Services;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using UrlShortener.Api.Data;
+using UrlShortener.Api.DTOs;
+using UrlShortener.Api.Models;
+using UrlShortener.Api.Services;
 
 namespace UrlShortener.Api.Controllers
 {
@@ -42,7 +43,16 @@ namespace UrlShortener.Api.Controllers
 
             return Ok(ToResponse(url));
         }
+        [HttpGet("analytics/{shortCode}")]
+        public async Task<IActionResult> GetUrlAnalytics(string shortCode)
+        {
+            var analytics = await _urlService.GetUrlAnalyticsAsync(shortCode);
 
+            if (analytics == null)
+                return NotFound("URL bulunamadı veya süresi dolmuş.");
+
+            return Ok(analytics);
+        }
 
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteUrl(int id)
@@ -55,20 +65,31 @@ namespace UrlShortener.Api.Controllers
             return NoContent();
         }
 
-
         [EnableRateLimiting("CreateUrlPolicy")]
         [HttpPost]
         public async Task<IActionResult> CreateUrl(
             [FromBody] CreateUrlRequest request)
         {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            int? userId = null;
+
+            if (userIdClaim != null &&
+                int.TryParse(userIdClaim.Value, out var parsedUserId))
+            {
+                userId = parsedUserId;
+            }
+
             var shortUrl = await _urlService.CreateUrlAsync(
-                request.OriginalUrl);
+                request.OriginalUrl,
+                request.CustomShortCode,
+                request.ExpiresAt,
+                userId);
 
             return Created(
                 $"/{shortUrl.ShortCode}",
                 ToResponse(shortUrl));
         }
-
 
         [AllowAnonymous]
         [AcceptVerbs("GET", "HEAD", Route = "/{shortCode}")]
@@ -173,6 +194,7 @@ namespace UrlShortener.Api.Controllers
                 OriginalUrl = url.OriginalUrl,
                 ShortCode = url.ShortCode,
                 CreatedAt = url.CreatedAt,
+                ExpiresAt = url.ExpiresAt,
                 ClickCount = url.ClickCount
             };
         }

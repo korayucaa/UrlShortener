@@ -1,20 +1,45 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using StackExchange.Redis;
-using System.Threading.RateLimiting;
-using UrlShortener.Api.Data;
-using UrlShortener.Api.Services;
-using UrlShortener.Api.Authentication;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-
+using StackExchange.Redis;
+using System.Text;
+using System.Threading.RateLimiting;
+using UrlShortener.Api.Authentication;
+using UrlShortener.Api.Data;
+using UrlShortener.Api.Models;
+using UrlShortener.Api.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Servisler
 builder.Services.AddControllers();
+builder.Services.AddScoped<JwtService>();
 // API Key Authentication
+// JWT ve API Key Authentication
+builder.Services.AddScoped<
+    Microsoft.AspNetCore.Identity.IPasswordHasher<User>,
+    Microsoft.AspNetCore.Identity.PasswordHasher<User>>();
 builder.Services
-    .AddAuthentication("ApiKey")
+    .AddAuthentication(options =>
+    {
+        options.DefaultScheme = "Smart";
+        options.DefaultChallengeScheme = "Smart";
+    })
+    .AddPolicyScheme("Smart", "API Key or JWT", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+        {
+            var authHeader = context.Request.Headers.Authorization.ToString();
+
+            return authHeader.StartsWith(
+                "Bearer ",
+                StringComparison.OrdinalIgnoreCase)
+                ? "Bearer"
+                : "ApiKey";
+        };
+    })
     .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
         "ApiKey",
         options =>
@@ -22,25 +47,57 @@ builder.Services
             options.ApiKey = builder.Configuration["ApiKey:Key"]
                 ?? throw new InvalidOperationException(
                     "ApiKey:Key yapýlandýrmasý bulunamadý.");
-        });
+        })
+   .AddJwtBearer("Bearer", options =>
+   {
+       var jwtKey = builder.Configuration["Jwt:Key"];
+
+       if (string.IsNullOrWhiteSpace(jwtKey))
+       {
+           throw new InvalidOperationException(
+               "Jwt:Key yapýlandýrmasý bulunamadý.");
+       }
+       options.TokenValidationParameters = new TokenValidationParameters
+       {
+           ValidateIssuer = true,
+           ValidIssuer = builder.Configuration["Jwt:Issuer"],
+
+           ValidateAudience = true,
+           ValidAudience = builder.Configuration["Jwt:Audience"],
+
+           ValidateIssuerSigningKey = true,
+           IssuerSigningKey = new SymmetricSecurityKey(
+               Encoding.UTF8.GetBytes(jwtKey)),
+
+           ValidateLifetime = true,
+           ClockSkew = TimeSpan.Zero
+       };
+   });
 
 builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
+    int defaultLimit = builder.Environment.IsEnvironment("Testing")
+     ? 1000
+     : 10;
+
+    int permitLimit = builder.Configuration.GetValue<int?>(
+        "RateLimiting:CreateUrlPermitLimit") ?? defaultLimit;
     options.AddPolicy("CreateUrlPolicy", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: partition => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                PermitLimit = permitLimit,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
 });
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(options =>
 {
     // API Key tanýmlamasý
@@ -52,13 +109,26 @@ builder.Services.AddSwaggerGen(options =>
         Type = SecuritySchemeType.ApiKey
     });
 
-    // Swagger isteklerine API Key eklenmesini saðla
+    // JWT Bearer tanýmlamasý
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT token deðerini girin. Bearer yazmadan yalnýzca token'ý yapýþtýrýn.",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+
+    // API Key ve JWT güvenlik gereksinimleri
     options.AddSecurityRequirement(document =>
         new OpenApiSecurityRequirement
         {
-            [new OpenApiSecuritySchemeReference("ApiKey", document)] = []
+            [new OpenApiSecuritySchemeReference("ApiKey", document)] = [],
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
         });
 });
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection")));

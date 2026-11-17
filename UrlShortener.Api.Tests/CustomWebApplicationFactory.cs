@@ -14,9 +14,10 @@ namespace UrlShortener.Api.Tests;
 public class CustomWebApplicationFactory
     : WebApplicationFactory<Program>
 {
+
     private readonly SqliteConnection _connection =
         new("Data Source=:memory:");
-
+    public int RateLimit { get; set; } = 1000;
     protected override void ConfigureWebHost(
         IWebHostBuilder builder)
     {
@@ -26,7 +27,12 @@ public class CustomWebApplicationFactory
             configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
                 {
-                    ["ApiKey:Key"] = "test-api-key"
+                    ["ApiKey:Key"] = "test-api-key",
+                    ["Jwt:Key"] = "test-jwt-secret-key-for-testing-only-123456",
+                    ["Jwt:Issuer"] = "UrlShortener.Api",
+                    ["Jwt:Audience"] = "UrlShortener.Client",
+                    ["Jwt:ExpirationInMinutes"] = "60",
+                    ["RateLimiting:CreateUrlPermitLimit"] = RateLimit.ToString()
                 });
         });
 
