@@ -28,7 +28,26 @@ namespace UrlShortener.Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetUrls()
         {
-            var urls = await _urlService.GetUrlsAsync();
+            int? userId = null;
+
+            var authHeader = Request.Headers.Authorization.ToString();
+
+            if (authHeader.StartsWith(
+                "Bearer ",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+                if (userIdClaim == null ||
+                    !int.TryParse(userIdClaim.Value, out var parsedUserId))
+                {
+                    return Unauthorized();
+                }
+
+                userId = parsedUserId;
+            }
+
+            var urls = await _urlService.GetUrlsAsync(userId);
 
             return Ok(urls.Select(ToResponse));
         }

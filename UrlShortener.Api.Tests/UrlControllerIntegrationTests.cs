@@ -7,6 +7,8 @@ using UrlShortener.Api.Data;
 using UrlShortener.Api.DTOs;
 using UrlShortener.Api.Models;
 using Xunit;
+using System.Net.Http.Headers;
+
 namespace UrlShortener.Api.Tests;
 
 public class UrlControllerIntegrationTests
@@ -725,5 +727,308 @@ public class UrlControllerIntegrationTests
 
         Assert.Equal(2, dailyClicks[0].GetProperty("clicks").GetInt32());
         Assert.Equal(1, dailyClicks[1].GetProperty("clicks").GetInt32());
+    }
+    [Fact]
+    public async Task GetUrls_ShouldReturnOnlyCurrentUsersUrls_WhenAuthenticatedWithJwt()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        // Birinci kullanıcıyı oluştur.
+        var registerResponse1 = await client.PostAsJsonAsync(
+            "/api/Auth/register",
+            new
+            {
+                username = "user1",
+                email = "user1@test.com",
+                password = "Test123!"
+            });
+
+        Assert.Equal(HttpStatusCode.OK, registerResponse1.StatusCode);
+
+        // İkinci kullanıcıyı oluştur.
+        var registerResponse2 = await client.PostAsJsonAsync(
+            "/api/Auth/register",
+            new
+            {
+                username = "user2",
+                email = "user2@test.com",
+                password = "Test123!"
+            });
+
+        Assert.Equal(HttpStatusCode.OK, registerResponse2.StatusCode);
+
+        // Birinci kullanıcıyla giriş yap.
+        var loginResponse1 = await client.PostAsJsonAsync(
+            "/api/Auth/login",
+            new
+            {
+                email = "user1@test.com",
+                password = "Test123!"
+            });
+
+        var loginResult1 = await loginResponse1.Content.ReadFromJsonAsync<
+            System.Text.Json.JsonElement>();
+
+        var token1 = loginResult1.GetProperty("token").GetString();
+
+        Assert.NotNull(token1);
+
+        // Birinci kullanıcı adına URL oluştur.
+        client.DefaultRequestHeaders.Remove("X-API-Key");
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token1);
+
+        var createResponse1 = await client.PostAsJsonAsync(
+            "/api/Urls",
+            new
+            {
+                originalUrl = "https://user1.com"
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse1.StatusCode);
+
+        // İkinci kullanıcıyla giriş yap.
+        client.DefaultRequestHeaders.Authorization = null;
+
+        var loginResponse2 = await client.PostAsJsonAsync(
+            "/api/Auth/login",
+            new
+            {
+                email = "user2@test.com",
+                password = "Test123!"
+            });
+
+        var loginResult2 = await loginResponse2.Content.ReadFromJsonAsync<
+            System.Text.Json.JsonElement>();
+
+        var token2 = loginResult2.GetProperty("token").GetString();
+
+        Assert.NotNull(token2);
+
+        // İkinci kullanıcı adına URL oluştur.
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token2);
+
+        var createResponse2 = await client.PostAsJsonAsync(
+            "/api/Urls",
+            new
+            {
+                originalUrl = "https://user2.com"
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse2.StatusCode);
+
+        // Tekrar birinci kullanıcıya geç.
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token1);
+
+        // URL listesini getir.
+        var listResponse = await client.GetAsync("/api/Urls");
+
+        var urls = await listResponse.Content.ReadFromJsonAsync<
+            List<ShortUrlResponse>>();
+
+        // Kontroller.
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.NotNull(urls);
+
+        Assert.Contains(urls, url =>
+            url.OriginalUrl == "https://user1.com");
+
+        Assert.DoesNotContain(urls, url =>
+            url.OriginalUrl == "https://user2.com");
+    }
+    [Fact]
+    public async Task GetUrls_ShouldReturnAllUsersUrls_WhenAuthenticatedWithApiKey()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        // İki kullanıcı oluştur.
+        await client.PostAsJsonAsync(
+            "/api/Auth/register",
+            new
+            {
+                username = "apiuser1",
+                email = "apiuser1@test.com",
+                password = "Test123!"
+            });
+
+        await client.PostAsJsonAsync(
+            "/api/Auth/register",
+            new
+            {
+                username = "apiuser2",
+                email = "apiuser2@test.com",
+                password = "Test123!"
+            });
+
+        // Birinci kullanıcıyla giriş yap.
+        var login1 = await client.PostAsJsonAsync(
+            "/api/Auth/login",
+            new
+            {
+                email = "apiuser1@test.com",
+                password = "Test123!"
+            });
+
+        var result1 = await login1.Content.ReadFromJsonAsync<
+            System.Text.Json.JsonElement>();
+
+        var token1 = result1.GetProperty("token").GetString();
+
+        // Birinci kullanıcının URL'sini oluştur.
+        client.DefaultRequestHeaders.Remove("X-API-Key");
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", token1);
+
+        var create1 = await client.PostAsJsonAsync(
+            "/api/Urls",
+            new { originalUrl = "https://apiuser1.com" });
+
+        Assert.Equal(HttpStatusCode.Created, create1.StatusCode);
+
+        // İkinci kullanıcıyla giriş yap.
+        client.DefaultRequestHeaders.Authorization = null;
+
+        var login2 = await client.PostAsJsonAsync(
+            "/api/Auth/login",
+            new
+            {
+                email = "apiuser2@test.com",
+                password = "Test123!"
+            });
+
+        var result2 = await login2.Content.ReadFromJsonAsync<
+            System.Text.Json.JsonElement>();
+
+        var token2 = result2.GetProperty("token").GetString();
+
+        // İkinci kullanıcının URL'sini oluştur.
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", token2);
+
+        var create2 = await client.PostAsJsonAsync(
+            "/api/Urls",
+            new { originalUrl = "https://apiuser2.com" });
+
+        Assert.Equal(HttpStatusCode.Created, create2.StatusCode);
+
+        // JWT'yi kaldır, API Key ile listele.
+        client.DefaultRequestHeaders.Authorization = null;
+        client.DefaultRequestHeaders.Add("X-API-Key", "test-api-key");
+
+        var response = await client.GetAsync("/api/Urls");
+
+        var urls = await response.Content.ReadFromJsonAsync<
+            List<ShortUrlResponse>>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(urls);
+
+        Assert.Contains(urls, url =>
+            url.OriginalUrl == "https://apiuser1.com");
+
+        Assert.Contains(urls, url =>
+            url.OriginalUrl == "https://apiuser2.com");
+    }
+    [Fact]
+    public async Task AdminDashboard_ShouldReturn200_WhenUserIsAdmin()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        // Kullanıcı oluştur.
+        await client.PostAsJsonAsync(
+            "/api/Auth/register",
+            new
+            {
+                username = "adminuser",
+                email = "admin@test.com",
+                password = "Test123!"
+            });
+
+        // Kullanıcıyı Admin yap.
+        using var scope = factory.Services.CreateScope();
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var user = await db.Users.FirstAsync(u => u.Email == "admin@test.com");
+        user.Role = "Admin";
+
+        await db.SaveChangesAsync();
+
+        // Admin olarak giriş yap.
+        var loginResponse = await client.PostAsJsonAsync(
+            "/api/Auth/login",
+            new
+            {
+                email = "admin@test.com",
+                password = "Test123!"
+            });
+
+        var loginResult = await loginResponse.Content.ReadFromJsonAsync<
+            System.Text.Json.JsonElement>();
+
+        var token = loginResult.GetProperty("token").GetString();
+
+        Assert.NotNull(token);
+
+        // API Key yerine JWT kullan.
+        client.DefaultRequestHeaders.Remove("X-API-Key");
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        // Admin dashboard'a eriş.
+        var response = await client.GetAsync("/api/Admin/dashboard");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+    [Fact]
+    public async Task AdminDashboard_ShouldReturn403_WhenUserIsNotAdmin()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        // Normal kullanıcı oluştur.
+        await client.PostAsJsonAsync(
+            "/api/Auth/register",
+            new
+            {
+                username = "normaluser",
+                email = "normal@test.com",
+                password = "Test123!"
+            });
+
+        // Normal kullanıcı olarak giriş yap.
+        var loginResponse = await client.PostAsJsonAsync(
+            "/api/Auth/login",
+            new
+            {
+                email = "normal@test.com",
+                password = "Test123!"
+            });
+
+        var loginResult = await loginResponse.Content.ReadFromJsonAsync<
+            System.Text.Json.JsonElement>();
+
+        var token = loginResult.GetProperty("token").GetString();
+
+        Assert.NotNull(token);
+
+        // API Key yerine JWT kullan.
+        client.DefaultRequestHeaders.Remove("X-API-Key");
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        // Normal kullanıcı Admin dashboard'a erişmeye çalışıyor.
+        var response = await client.GetAsync("/api/Admin/dashboard");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 }

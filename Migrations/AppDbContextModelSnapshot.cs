@@ -100,6 +100,12 @@ namespace UrlShortener.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("User");
+
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasColumnType("text");

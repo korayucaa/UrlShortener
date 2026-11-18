@@ -50,7 +50,8 @@ namespace UrlShortener.Api.Controllers
             var user = new User
             {
                 Username = request.Username,
-                Email = request.Email
+                Email = request.Email,
+                Role = "User"
             };
 
             user.PasswordHash = _passwordHasher.HashPassword(

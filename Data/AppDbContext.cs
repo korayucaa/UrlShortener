@@ -38,6 +38,9 @@ namespace UrlShortener.Api.Data
                 .WithMany()
                 .HasForeignKey(u => u.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<User>()
+                .Property(u => u.Role)
+                .HasDefaultValue("User");
         }
     }
 }

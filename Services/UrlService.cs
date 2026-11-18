@@ -118,9 +118,16 @@ namespace UrlShortener.Api.Services
                 return shortUrl;
         }
 
-        public async Task<List<ShortUrl>> GetUrlsAsync()
+        public async Task<List<ShortUrl>> GetUrlsAsync(int? userId = null)
         {
-            return await _context.ShortUrls.ToListAsync();
+            var query = _context.ShortUrls.AsQueryable();
+
+            if (userId.HasValue)
+            {
+                query = query.Where(url => url.UserId == userId.Value);
+            }
+
+            return await query.ToListAsync();
         }
 
 
