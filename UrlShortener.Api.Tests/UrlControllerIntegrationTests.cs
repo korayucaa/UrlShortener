@@ -8,6 +8,7 @@ using UrlShortener.Api.DTOs;
 using UrlShortener.Api.Models;
 using Xunit;
 using System.Net.Http.Headers;
+using System.Text.Json;
 
 namespace UrlShortener.Api.Tests;
 
@@ -1031,4 +1032,109 @@ public class UrlControllerIntegrationTests
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Swagger_ShouldDocumentSecurityAndResponsesCorrectly()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        // Swagger JSON belgesini al.
+        var response = await client.GetAsync("/swagger/v1/swagger.json");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var json = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync());
+
+        var paths = json.RootElement.GetProperty("paths");
+
+        // Register ve Login herkese açık olmalı.
+        var register = paths
+            .GetProperty("/api/Auth/register")
+            .GetProperty("post");
+
+        var login = paths
+            .GetProperty("/api/Auth/login")
+            .GetProperty("post");
+
+        Assert.False(register.TryGetProperty("security", out _));
+        Assert.False(login.TryGetProperty("security", out _));
+
+        // URL endpoint'i API Key ve JWT seçeneklerini içermeli.
+        var getUrls = paths
+            .GetProperty("/api/Urls")
+            .GetProperty("get");
+
+        var security = getUrls.GetProperty("security");
+
+        var schemes = security
+            .EnumerateArray()
+            .SelectMany(item => item.EnumerateObject())
+            .Select(item => item.Name)
+            .ToHashSet();
+
+        Assert.Contains("ApiKey", schemes);
+        Assert.Contains("Bearer", schemes);
+
+        // Admin endpoint'i korumalı olmalı.
+        var admin = paths
+            .GetProperty("/api/Admin/dashboard")
+            .GetProperty("get");
+
+        Assert.True(admin.TryGetProperty("security", out _));
+
+        // Redirect GET ve HEAD anonim olmalı.
+        var redirect = paths.GetProperty("/{shortCode}");
+
+        Assert.False(
+            redirect.GetProperty("get")
+                .TryGetProperty("security", out _));
+
+        Assert.False(
+            redirect.GetProperty("head")
+                .TryGetProperty("security", out _));
+
+        // HTTP yanıt kodlarını kontrol et.
+        Assert.True(
+            register.GetProperty("responses").TryGetProperty("200", out _));
+
+        Assert.True(
+            register.GetProperty("responses").TryGetProperty("409", out _));
+
+        Assert.True(
+            login.GetProperty("responses").TryGetProperty("401", out _));
+
+        Assert.True(
+            getUrls.GetProperty("responses").TryGetProperty("200", out _));
+
+        Assert.True(
+            admin.GetProperty("responses").TryGetProperty("403", out _));
+
+        var createUrl = paths
+            .GetProperty("/api/Urls")
+            .GetProperty("post");
+
+        Assert.True(
+            createUrl.GetProperty("responses").TryGetProperty("201", out _));
+
+        Assert.True(
+            createUrl.GetProperty("responses").TryGetProperty("429", out _));
+
+        var deleteUrl = paths
+            .GetProperty("/api/Urls/{id}")
+            .GetProperty("delete");
+
+        Assert.True(
+            deleteUrl.GetProperty("responses").TryGetProperty("204", out _));
+
+        var redirectGet = redirect.GetProperty("get");
+
+        Assert.True(
+            redirectGet.GetProperty("responses").TryGetProperty("302", out _));
+
+        Assert.True(
+            redirectGet.GetProperty("responses").TryGetProperty("404", out _));
+    }
+
 }

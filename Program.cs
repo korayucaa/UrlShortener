@@ -11,6 +11,7 @@ using UrlShortener.Api.Authentication;
 using UrlShortener.Api.Data;
 using UrlShortener.Api.Models;
 using UrlShortener.Api.Services;
+using UrlShortener.Api.Filters;
 var builder = WebApplication.CreateBuilder(args);
 
 // Servisler
@@ -120,13 +121,18 @@ builder.Services.AddSwaggerGen(options =>
         BearerFormat = "JWT"
     });
 
-    // API Key ve JWT güvenlik gereksinimleri
-    options.AddSecurityRequirement(document =>
-        new OpenApiSecurityRequirement
+    options.OperationFilter<AuthorizeCheckOperationFilter>();
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "URL Shortener API",
+        Version = "v1",
+        Description = "URL kýsaltma, yönlendirme, kullanýcý yönetimi ve URL analiz iþlemlerini saðlayan RESTful Web API.",
+        Contact = new OpenApiContact
         {
-            [new OpenApiSecuritySchemeReference("ApiKey", document)] = [],
-            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
-        });
+            Name = "Koray",
+            Url = new Uri("https://github.com/korayucaa")
+        }
+    });
 });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -193,12 +199,22 @@ app.UseExceptionHandler(errorApp =>
 });
 
 // HTTP istek hattý
-if (app.Environment.IsDevelopment())
+//if (app.Environment.IsDevelopment())
+//{
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
+//Belki geri açmam gerekir 
+if (app.Environment.IsDevelopment() ||
+    app.Environment.IsEnvironment("Testing"))
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
-}
 
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwaggerUI();
+    }
+}
 if (!app.Environment.IsEnvironment("Testing"))
 {
     app.UseHttpsRedirection();

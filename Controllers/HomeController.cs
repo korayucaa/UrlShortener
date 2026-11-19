@@ -26,6 +26,9 @@ namespace UrlShortener.Api.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [Produces("application/json")]
         public async Task<IActionResult> GetUrls()
         {
             int? userId = null;
@@ -53,6 +56,9 @@ namespace UrlShortener.Api.Controllers
         }
 
         [HttpGet("code/{shortCode}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Produces("application/json")]
         public async Task<IActionResult> GetUrlByCode(string shortCode)
         {
             var url = await _urlService.GetUrlByCodeAsync(shortCode);
@@ -63,6 +69,9 @@ namespace UrlShortener.Api.Controllers
             return Ok(ToResponse(url));
         }
         [HttpGet("analytics/{shortCode}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Produces("application/json")]
         public async Task<IActionResult> GetUrlAnalytics(string shortCode)
         {
             var analytics = await _urlService.GetUrlAnalyticsAsync(shortCode);
@@ -74,6 +83,8 @@ namespace UrlShortener.Api.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteUrl(int id)
         {
             var deleted = await _urlService.DeleteUrlAsync(id);
@@ -86,6 +97,10 @@ namespace UrlShortener.Api.Controllers
 
         [EnableRateLimiting("CreateUrlPolicy")]
         [HttpPost]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+        [Produces("application/json")]
         public async Task<IActionResult> CreateUrl(
             [FromBody] CreateUrlRequest request)
         {
@@ -112,6 +127,9 @@ namespace UrlShortener.Api.Controllers
 
         [AllowAnonymous]
         [AcceptVerbs("GET", "HEAD", Route = "/{shortCode}")]
+        [ProducesResponseType(StatusCodes.Status302Found)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> RedirectToOriginalUrl(string shortCode)
         {
             if (IsSpeculativeRequest(Request))

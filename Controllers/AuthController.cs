@@ -6,6 +6,7 @@ using UrlShortener.Api.Data;
 using UrlShortener.Api.Dtos;
 using UrlShortener.Api.Models;
 using UrlShortener.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace UrlShortener.Api.Controllers
 {
@@ -28,6 +29,11 @@ namespace UrlShortener.Api.Controllers
         }
 
         [HttpPost("register")]
+        [AllowAnonymous]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [Produces("application/json")]
+
         public async Task<IActionResult> Register(
             RegisterRequest request)
         {
@@ -71,6 +77,10 @@ namespace UrlShortener.Api.Controllers
         }
 
         [HttpPost("login")]
+        [AllowAnonymous]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [Produces("application/json")]
         public async Task<IActionResult> Login(
             LoginRequest request)
         {

@@ -10,6 +10,10 @@ namespace UrlShortener.Api.Controllers
     public class AdminController : ControllerBase
     {
         [HttpGet("dashboard")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [Produces("application/json")]
         public IActionResult Dashboard()
         {
             return Ok(new
