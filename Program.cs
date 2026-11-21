@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -9,13 +10,30 @@ using System.Text;
 using System.Threading.RateLimiting;
 using UrlShortener.Api.Authentication;
 using UrlShortener.Api.Data;
+using UrlShortener.Api.Filters;
+using UrlShortener.Api.HealthChecks;
 using UrlShortener.Api.Models;
 using UrlShortener.Api.Services;
-using UrlShortener.Api.Filters;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Servisler
 builder.Services.AddControllers();
+// Health Checks
+var healthChecks = builder.Services.AddHealthChecks();
+
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    healthChecks
+        .AddNpgSql(
+            builder.Configuration.GetConnectionString("DefaultConnection")!,
+            name: "postgresql",
+            tags: new[] { "database" })
+        .AddRedis(
+            builder.Configuration["Redis:ConnectionString"]!,
+            name: "redis",
+            tags: new[] { "cache" });
+}
 builder.Services.AddScoped<JwtService>();
 // API Key Authentication
 // JWT ve API Key Authentication
@@ -231,6 +249,25 @@ if (!app.Environment.IsEnvironment("Testing"))
     }
 }
 app.UseRateLimiter();
-app.MapControllers();
+// Genel saðlýk kontrolü
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = HealthCheckResponseWriter.WriteResponse
+});
+
+// Liveness: API çalýþýyor mu?
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = HealthCheckResponseWriter.WriteResponse
+});
+
+// Readiness: PostgreSQL ve Redis hazýr mý?
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("database") ||
+                         check.Tags.Contains("cache"),
+    ResponseWriter = HealthCheckResponseWriter.WriteResponse
+}); app.MapControllers();
 app.Run();
 public partial class Program { }

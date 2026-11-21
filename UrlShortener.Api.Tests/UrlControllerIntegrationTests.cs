@@ -1137,4 +1137,71 @@ public class UrlControllerIntegrationTests
             redirectGet.GetProperty("responses").TryGetProperty("404", out _));
     }
 
+    [Fact]
+    public async Task HealthCheck_ShouldReturnHealthyStatus()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        // Health endpoint'ine istek gönder.
+        var response = await client.GetAsync("/health");
+
+        // HTTP 200 dönmeli.
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // JSON yanıtını oku.
+        using var json = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync());
+
+        var root = json.RootElement;
+
+        // Genel durum Healthy olmalı.
+        Assert.Equal(
+            "Healthy",
+            root.GetProperty("status").GetString());
+
+        // Test ortamında dış servis kontrolleri kayıtlı değil.
+        Assert.Empty(
+            root.GetProperty("checks").EnumerateArray());
+    }
+    [Fact]
+    public async Task HealthCheckLive_ShouldReturnHealthyStatus()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/health/live");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var json = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(
+            "Healthy",
+            json.RootElement.GetProperty("status").GetString());
+
+        Assert.Empty(
+            json.RootElement.GetProperty("checks").EnumerateArray());
+    }
+    [Fact]
+    public async Task HealthCheckReady_ShouldReturnHealthyStatus()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var json = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(
+            "Healthy",
+            json.RootElement.GetProperty("status").GetString());
+
+        Assert.Empty(
+            json.RootElement.GetProperty("checks").EnumerateArray());
+    }
 }
