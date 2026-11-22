@@ -10,3 +10,6 @@ appsettings.Development.json
 roadmap.txt
 roadmap2.txt
 testAdlari.txt
+# Serilog log files
+logs/
+*.log

@@ -14,9 +14,20 @@ using UrlShortener.Api.Filters;
 using UrlShortener.Api.HealthChecks;
 using UrlShortener.Api.Models;
 using UrlShortener.Api.Services;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
-
+// Serilog yapýlandýrmasý
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration
+        .MinimumLevel.Information()
+        .Enrich.FromLogContext()
+        .WriteTo.Console()
+        .WriteTo.File(
+            "logs/log-.txt",
+            rollingInterval: RollingInterval.Day);
+});
 // Servisler
 builder.Services.AddControllers();
 // Health Checks
@@ -174,6 +185,9 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 
 var app = builder.Build();
+// HTTP isteklerini otomatik logla
+app.UseSerilogRequestLogging();
+
 // Global hata yönetimi
 // Global hata yönetimi
 app.UseExceptionHandler(errorApp =>
