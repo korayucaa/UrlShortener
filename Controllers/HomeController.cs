@@ -31,8 +31,8 @@ namespace UrlShortener.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [Produces("application/json")]
         public async Task<IActionResult> GetUrls(
-    [FromQuery] int page = 1,
-    [FromQuery] int pageSize = 20)
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
         {
             // Sayfa numarası kontrolü
             if (page < 1)
@@ -65,15 +65,23 @@ namespace UrlShortener.Api.Controllers
                 userId = parsedUserId;
             }
 
-            var urls = await _urlService.GetUrlsAsync(userId, page, pageSize);
+            var urls = await _urlService.GetUrlsAsync(
+                userId,
+                page,
+                pageSize);
 
-            return Ok(new PagedResponse<ShortUrlResponse>
+            return Ok(new ApiResponse<PagedResponse<ShortUrlResponse>>
             {
-                Items = urls.Items.Select(ToResponse).ToList(),
-                Page = urls.Page,
-                PageSize = urls.PageSize,
-                TotalCount = urls.TotalCount,
-                TotalPages = urls.TotalPages
+                Success = true,
+                Message = "URL listesi başarıyla getirildi.",
+                Data = new PagedResponse<ShortUrlResponse>
+                {
+                    Items = urls.Items.Select(ToResponse).ToList(),
+                    Page = urls.Page,
+                    PageSize = urls.PageSize,
+                    TotalCount = urls.TotalCount,
+                    TotalPages = urls.TotalPages
+                }
             });
         }
 
