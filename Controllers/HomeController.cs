@@ -85,6 +85,7 @@ namespace UrlShortener.Api.Controllers
             });
         }
 
+
         [HttpGet("code/{shortCode}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -94,10 +95,24 @@ namespace UrlShortener.Api.Controllers
             var url = await _urlService.GetUrlByCodeAsync(shortCode);
 
             if (url == null)
-                return NotFound("Kısa URL bulunamadı.");
+            {
+                return NotFound(new ApiResponse<ShortUrlResponse>
+                {
+                    Success = false,
+                    Message = "Kısa URL bulunamadı.",
+                    Data = null
+                });
+            }
 
-            return Ok(ToResponse(url));
+            return Ok(new ApiResponse<ShortUrlResponse>
+            {
+                Success = true,
+                Message = "Kısa URL başarıyla getirildi.",
+                Data = ToResponse(url)
+            });
         }
+
+
         [HttpGet("analytics/{shortCode}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -107,7 +122,9 @@ namespace UrlShortener.Api.Controllers
             var analytics = await _urlService.GetUrlAnalyticsAsync(shortCode);
 
             if (analytics == null)
+            {
                 return NotFound("URL bulunamadı veya süresi dolmuş.");
+            }
 
             return Ok(analytics);
         }

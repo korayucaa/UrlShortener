@@ -740,6 +740,7 @@ public class UrlControllerIntegrationTests
 
             var url = await db.ShortUrls
                 .FirstAsync(u => u.ShortCode == "daily-test");
+            Assert.Null(url.ExpiresAt);
 
             var today = DateTime.UtcNow.Date;
             var yesterday = today.AddDays(-1);
@@ -769,7 +770,11 @@ public class UrlControllerIntegrationTests
         // Analytics endpoint'ini çağır.
         var response = await client.GetAsync(
             "/api/Urls/analytics/daily-test");
+        var responseBody = await response.Content.ReadAsStringAsync();
 
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"Beklenen: 200 OK, Gelen: {(int)response.StatusCode} {response.StatusCode}. Yanıt: {responseBody}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         // JSON yanıtını kontrol et.
