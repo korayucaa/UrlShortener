@@ -60,11 +60,19 @@ public class UrlControllerIntegrationTests
             response.StatusCode);
 
         var result = await response.Content.ReadFromJsonAsync<
-     UrlShortener.Api.DTOs.ShortUrlResponse>();
+            UrlShortener.Api.DTOs.ApiResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         Assert.NotNull(result);
-        Assert.Equal("https://www.google.com", result.OriginalUrl);
-        Assert.False(string.IsNullOrEmpty(result.ShortCode));
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+
+        Assert.Equal(
+            "https://www.google.com",
+            result.Data.OriginalUrl);
+
+        Assert.False(
+            string.IsNullOrEmpty(result.Data.ShortCode));
     }
     [Fact]
     public async Task Redirect_ShouldReturn302_WhenShortCodeExists()
@@ -80,13 +88,17 @@ public class UrlControllerIntegrationTests
             request);
 
         var createdUrl = await createResponse.Content.ReadFromJsonAsync<
-            UrlShortener.Api.DTOs.ShortUrlResponse>();
+            UrlShortener.Api.DTOs.ApiResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         Assert.NotNull(createdUrl);
+        Assert.NotNull(createdUrl.Data);
+
         _client.DefaultRequestHeaders.Remove("X-API-Key");
+
         // Act
         var redirectResponse = await _client.GetAsync(
-            $"/{createdUrl.ShortCode}");
+            $"/{createdUrl.Data.ShortCode}");
 
         // Assert
         Assert.Equal(
@@ -94,8 +106,8 @@ public class UrlControllerIntegrationTests
             redirectResponse.StatusCode);
 
         Assert.Equal(
-     new Uri("https://www.google.com/"),
-     redirectResponse.Headers.Location);
+            new Uri("https://www.google.com/"),
+            redirectResponse.Headers.Location);
     }
     [Fact]
     public async Task Redirect_ShouldReturn404_WhenShortCodeDoesNotExist()
@@ -125,14 +137,14 @@ public class UrlControllerIntegrationTests
         var response = await _client.GetAsync("/api/Urls");
 
         var urls = await response.Content.ReadFromJsonAsync<
-            List<UrlShortener.Api.DTOs.ShortUrlResponse>>();
+            PagedResponse<ShortUrlResponse>>();
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         Assert.NotNull(urls);
 
-        Assert.Contains(urls, url =>
+        Assert.Contains(urls!.Items, url =>
             url.OriginalUrl == "https://www.google.com");
     }
     [Fact]
@@ -148,16 +160,20 @@ public class UrlControllerIntegrationTests
             "/api/Urls",
             request);
 
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Created,
+            createResponse.StatusCode);
 
         var createdUrl = await createResponse.Content.ReadFromJsonAsync<
-            UrlShortener.Api.DTOs.ShortUrlResponse>();
+            UrlShortener.Api.DTOs.ApiResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         Assert.NotNull(createdUrl);
+        Assert.NotNull(createdUrl.Data);
 
         // Act: URL'yi sil.
         var deleteResponse = await _client.DeleteAsync(
-            $"/api/Urls/{createdUrl.Id}");
+            $"/api/Urls/{createdUrl.Data.Id}");
 
         // Assert: Silme işleminin başarılı olduğunu kontrol et.
         Assert.Equal(
@@ -168,12 +184,13 @@ public class UrlControllerIntegrationTests
         var listResponse = await _client.GetAsync("/api/Urls");
 
         var urls = await listResponse.Content.ReadFromJsonAsync<
-            List<UrlShortener.Api.DTOs.ShortUrlResponse>>();
+            UrlShortener.Api.DTOs.PagedResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         Assert.NotNull(urls);
 
-        Assert.DoesNotContain(urls, url =>
-            url.Id == createdUrl.Id);
+        Assert.DoesNotContain(urls.Items, url =>
+            url.Id == createdUrl.Data.Id);
     }
     [Fact]
     public async Task DeleteUrl_ShouldReturn404_WhenUrlDoesNotExist()
@@ -199,14 +216,17 @@ public class UrlControllerIntegrationTests
             request);
 
         var createdUrl = await createResponse.Content.ReadFromJsonAsync<
-            UrlShortener.Api.DTOs.ShortUrlResponse>();
+            UrlShortener.Api.DTOs.ApiResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         Assert.NotNull(createdUrl);
-        Assert.Equal(0, createdUrl.ClickCount);
+        Assert.NotNull(createdUrl.Data);
+
+        Assert.Equal(0, createdUrl.Data.ClickCount);
 
         // Act
         var redirectResponse = await _client.GetAsync(
-            $"/{createdUrl.ShortCode}");
+            $"/{createdUrl.Data.ShortCode}");
 
         // Assert
         Assert.Equal(
@@ -216,12 +236,13 @@ public class UrlControllerIntegrationTests
         var listResponse = await _client.GetAsync("/api/Urls");
 
         var urls = await listResponse.Content.ReadFromJsonAsync<
-            List<UrlShortener.Api.DTOs.ShortUrlResponse>>();
+            UrlShortener.Api.DTOs.PagedResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         Assert.NotNull(urls);
 
         var updatedUrl = Assert.Single(
-            urls.Where(url => url.Id == createdUrl.Id));
+            urls.Items.Where(url => url.Id == createdUrl.Data.Id));
 
         Assert.Equal(1, updatedUrl.ClickCount);
     }
@@ -239,14 +260,16 @@ public class UrlControllerIntegrationTests
             request);
 
         var createdUrl = await createResponse.Content.ReadFromJsonAsync<
-            UrlShortener.Api.DTOs.ShortUrlResponse>();
+            UrlShortener.Api.DTOs.ApiResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         Assert.NotNull(createdUrl);
+        Assert.NotNull(createdUrl.Data);
 
         // Act
         var httpRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            $"/{createdUrl.ShortCode}");
+            $"/{createdUrl.Data.ShortCode}");
 
         httpRequest.Headers.Add("Purpose", "prefetch");
 
@@ -261,12 +284,13 @@ public class UrlControllerIntegrationTests
         var listResponse = await _client.GetAsync("/api/Urls");
 
         var urls = await listResponse.Content.ReadFromJsonAsync<
-            List<UrlShortener.Api.DTOs.ShortUrlResponse>>();
+            UrlShortener.Api.DTOs.PagedResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         Assert.NotNull(urls);
 
         var savedUrl = Assert.Single(
-            urls.Where(url => url.Id == createdUrl.Id));
+            urls.Items.Where(url => url.Id == createdUrl.Data.Id));
 
         Assert.Equal(0, savedUrl.ClickCount);
     }
@@ -284,14 +308,16 @@ public class UrlControllerIntegrationTests
             request);
 
         var createdUrl = await createResponse.Content.ReadFromJsonAsync<
-            UrlShortener.Api.DTOs.ShortUrlResponse>();
+            UrlShortener.Api.DTOs.ApiResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         Assert.NotNull(createdUrl);
+        Assert.NotNull(createdUrl.Data);
 
         // Act
         var httpRequest = new HttpRequestMessage(
             HttpMethod.Head,
-            $"/{createdUrl.ShortCode}");
+            $"/{createdUrl.Data.ShortCode}");
 
         var response = await _client.SendAsync(httpRequest);
 
@@ -303,12 +329,13 @@ public class UrlControllerIntegrationTests
         var listResponse = await _client.GetAsync("/api/Urls");
 
         var urls = await listResponse.Content.ReadFromJsonAsync<
-            List<UrlShortener.Api.DTOs.ShortUrlResponse>>();
+            UrlShortener.Api.DTOs.PagedResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         Assert.NotNull(urls);
 
         var savedUrl = Assert.Single(
-            urls.Where(url => url.Id == createdUrl.Id));
+            urls.Items.Where(url => url.Id == createdUrl.Data.Id));
 
         Assert.Equal(0, savedUrl.ClickCount);
     }
@@ -387,12 +414,18 @@ public class UrlControllerIntegrationTests
             request);
 
         var result = await response.Content.ReadFromJsonAsync<
-            UrlShortener.Api.DTOs.ShortUrlResponse>();
+            UrlShortener.Api.DTOs.ApiResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.NotNull(result);
-        Assert.Equal("my-google-test", result.ShortCode);
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+
+        Assert.Equal(
+            "my-google-test",
+            result.Data.ShortCode);
     }
     [Fact]
     public async Task CreateUrl_ShouldReturn400_WhenCustomShortCodeAlreadyExists()
@@ -480,7 +513,8 @@ public class UrlControllerIntegrationTests
             request);
 
         var result = await response.Content.ReadFromJsonAsync<
-            UrlShortener.Api.DTOs.ShortUrlResponse>();
+            UrlShortener.Api.DTOs.ApiResponse<
+                UrlShortener.Api.DTOs.ShortUrlResponse>>();
 
         // Assert
         Assert.Equal(
@@ -488,11 +522,13 @@ public class UrlControllerIntegrationTests
             response.StatusCode);
 
         Assert.NotNull(result);
-        Assert.NotNull(result.ExpiresAt);
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+        Assert.NotNull(result.Data.ExpiresAt);
 
         Assert.Equal(
             expirationDate,
-            result.ExpiresAt.Value,
+            result.Data.ExpiresAt.Value,
             TimeSpan.FromSeconds(1));
     }
     [Fact]
@@ -592,14 +628,22 @@ public class UrlControllerIntegrationTests
                 customShortCode = "no-expiration-test"
             });
 
+        Assert.Equal(
+            HttpStatusCode.Created,
+            response.StatusCode);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var content = await response.Content.ReadFromJsonAsync<ShortUrlResponse>();
+        var content = await response.Content.ReadFromJsonAsync<
+            ApiResponse<ShortUrlResponse>>();
 
         Assert.NotNull(content);
-        Assert.Equal("no-expiration-test", content.ShortCode);
-        Assert.Null(content.ExpiresAt);
+        Assert.True(content.Success);
+        Assert.NotNull(content.Data);
+
+        Assert.Equal(
+            "no-expiration-test",
+            content.Data.ShortCode);
+
+        Assert.Null(content.Data.ExpiresAt);
     }
 
     [Fact]
@@ -735,7 +779,6 @@ public class UrlControllerIntegrationTests
         using var factory = new CustomWebApplicationFactory();
         using var client = factory.CreateClient();
 
-        // Birinci kullanıcıyı oluştur.
         var registerResponse1 = await client.PostAsJsonAsync(
             "/api/Auth/register",
             new
@@ -747,7 +790,6 @@ public class UrlControllerIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, registerResponse1.StatusCode);
 
-        // İkinci kullanıcıyı oluştur.
         var registerResponse2 = await client.PostAsJsonAsync(
             "/api/Auth/register",
             new
@@ -759,7 +801,6 @@ public class UrlControllerIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, registerResponse2.StatusCode);
 
-        // Birinci kullanıcıyla giriş yap.
         var loginResponse1 = await client.PostAsJsonAsync(
             "/api/Auth/login",
             new
@@ -775,7 +816,6 @@ public class UrlControllerIntegrationTests
 
         Assert.NotNull(token1);
 
-        // Birinci kullanıcı adına URL oluştur.
         client.DefaultRequestHeaders.Remove("X-API-Key");
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token1);
@@ -789,7 +829,6 @@ public class UrlControllerIntegrationTests
 
         Assert.Equal(HttpStatusCode.Created, createResponse1.StatusCode);
 
-        // İkinci kullanıcıyla giriş yap.
         client.DefaultRequestHeaders.Authorization = null;
 
         var loginResponse2 = await client.PostAsJsonAsync(
@@ -807,7 +846,6 @@ public class UrlControllerIntegrationTests
 
         Assert.NotNull(token2);
 
-        // İkinci kullanıcı adına URL oluştur.
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token2);
 
@@ -820,24 +858,21 @@ public class UrlControllerIntegrationTests
 
         Assert.Equal(HttpStatusCode.Created, createResponse2.StatusCode);
 
-        // Tekrar birinci kullanıcıya geç.
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token1);
 
-        // URL listesini getir.
         var listResponse = await client.GetAsync("/api/Urls");
 
         var urls = await listResponse.Content.ReadFromJsonAsync<
-            List<ShortUrlResponse>>();
+            PagedResponse<ShortUrlResponse>>();
 
-        // Kontroller.
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
         Assert.NotNull(urls);
 
-        Assert.Contains(urls, url =>
+        Assert.Contains(urls.Items, url =>
             url.OriginalUrl == "https://user1.com");
 
-        Assert.DoesNotContain(urls, url =>
+        Assert.DoesNotContain(urls.Items, url =>
             url.OriginalUrl == "https://user2.com");
     }
     [Fact]
@@ -846,7 +881,6 @@ public class UrlControllerIntegrationTests
         using var factory = new CustomWebApplicationFactory();
         using var client = factory.CreateClient();
 
-        // İki kullanıcı oluştur.
         await client.PostAsJsonAsync(
             "/api/Auth/register",
             new
@@ -865,7 +899,6 @@ public class UrlControllerIntegrationTests
                 password = "Test123!"
             });
 
-        // Birinci kullanıcıyla giriş yap.
         var login1 = await client.PostAsJsonAsync(
             "/api/Auth/login",
             new
@@ -879,11 +912,9 @@ public class UrlControllerIntegrationTests
 
         var token1 = result1.GetProperty("token").GetString();
 
-        // Birinci kullanıcının URL'sini oluştur.
         client.DefaultRequestHeaders.Remove("X-API-Key");
         client.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue(
-                "Bearer", token1);
+            new AuthenticationHeaderValue("Bearer", token1);
 
         var create1 = await client.PostAsJsonAsync(
             "/api/Urls",
@@ -891,7 +922,6 @@ public class UrlControllerIntegrationTests
 
         Assert.Equal(HttpStatusCode.Created, create1.StatusCode);
 
-        // İkinci kullanıcıyla giriş yap.
         client.DefaultRequestHeaders.Authorization = null;
 
         var login2 = await client.PostAsJsonAsync(
@@ -907,10 +937,8 @@ public class UrlControllerIntegrationTests
 
         var token2 = result2.GetProperty("token").GetString();
 
-        // İkinci kullanıcının URL'sini oluştur.
         client.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue(
-                "Bearer", token2);
+            new AuthenticationHeaderValue("Bearer", token2);
 
         var create2 = await client.PostAsJsonAsync(
             "/api/Urls",
@@ -918,22 +946,21 @@ public class UrlControllerIntegrationTests
 
         Assert.Equal(HttpStatusCode.Created, create2.StatusCode);
 
-        // JWT'yi kaldır, API Key ile listele.
         client.DefaultRequestHeaders.Authorization = null;
         client.DefaultRequestHeaders.Add("X-API-Key", "test-api-key");
 
         var response = await client.GetAsync("/api/Urls");
 
         var urls = await response.Content.ReadFromJsonAsync<
-            List<ShortUrlResponse>>();
+            PagedResponse<ShortUrlResponse>>();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(urls);
 
-        Assert.Contains(urls, url =>
+        Assert.Contains(urls.Items, url =>
             url.OriginalUrl == "https://apiuser1.com");
 
-        Assert.Contains(urls, url =>
+        Assert.Contains(urls.Items, url =>
             url.OriginalUrl == "https://apiuser2.com");
     }
     [Fact]
@@ -1203,5 +1230,70 @@ public class UrlControllerIntegrationTests
 
         Assert.Empty(
             json.RootElement.GetProperty("checks").EnumerateArray());
+    }
+    [Fact]
+    public async Task GetUrls_ShouldReturnOnlyRequestedPageSize()
+    {
+        // Arrange: Başlangıçtaki URL sayısını öğren.
+        var initialResponse = await _client.GetAsync("/api/Urls");
+
+        var initialResult = await initialResponse.Content.ReadFromJsonAsync<
+            PagedResponse<ShortUrlResponse>>();
+
+        Assert.NotNull(initialResult);
+
+        int initialCount = initialResult!.TotalCount;
+
+        // 3 URL oluştur.
+        for (int i = 1; i <= 3; i++)
+        {
+            var request = new
+            {
+                OriginalUrl = $"https://example.com/{i}"
+            };
+
+            var createResponse = await _client.PostAsJsonAsync(
+                "/api/Urls",
+                request);
+
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        }
+
+        // Act: İlk sayfadan 2 kayıt iste.
+        var response = await _client.GetAsync(
+            "/api/Urls?page=1&pageSize=2");
+
+        var result = await response.Content.ReadFromJsonAsync<
+            PagedResponse<ShortUrlResponse>>();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result!.Items.Count);
+        Assert.Equal(initialCount + 3, result.TotalCount);
+        Assert.Equal(
+            (int)Math.Ceiling((initialCount + 3) / 2.0),
+            result.TotalPages);
+        Assert.Equal(1, result.Page);
+        Assert.Equal(2, result.PageSize);
+    }
+    [Fact]
+    public async Task GetUrls_ShouldReturn400_WhenPageIsInvalid()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/Urls?page=0");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+    [Fact]
+    public async Task GetUrls_ShouldReturn400_WhenPageSizeIsInvalid()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/Urls?pageSize=101");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }

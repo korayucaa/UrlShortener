@@ -118,17 +118,39 @@ namespace UrlShortener.Api.Services
                 return shortUrl;
         }
 
-        public async Task<List<ShortUrl>> GetUrlsAsync(int? userId = null)
+
+        public async Task<PagedResponse<ShortUrl>> GetUrlsAsync(
+            int? userId = null,
+            int page = 1,
+            int pageSize = 20)
         {
-            var query = _context.ShortUrls.AsQueryable();
+            var query = _context.ShortUrls.AsNoTracking().AsQueryable();
 
             if (userId.HasValue)
             {
                 query = query.Where(url => url.UserId == userId.Value);
             }
 
-            return await query.ToListAsync();
+            // Toplam kayıt sayısını hesapla.
+            var totalCount = await query.CountAsync();
+
+            // İstenen sayfanın kayıtlarını getir.
+            var urls = await query
+                .OrderByDescending(url => url.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResponse<ShortUrl>
+            {
+                Items = urls,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            };
         }
+
 
 
 

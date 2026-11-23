@@ -27,10 +27,25 @@ namespace UrlShortener.Api.Controllers
 
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [Produces("application/json")]
-        public async Task<IActionResult> GetUrls()
+        public async Task<IActionResult> GetUrls(
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 20)
         {
+            // Sayfa numarası kontrolü
+            if (page < 1)
+            {
+                return BadRequest("Page 1 veya daha büyük olmalıdır.");
+            }
+
+            // Sayfa başına kayıt sayısı kontrolü
+            if (pageSize < 1 || pageSize > 100)
+            {
+                return BadRequest("PageSize 1 ile 100 arasında olmalıdır.");
+            }
+
             int? userId = null;
 
             var authHeader = Request.Headers.Authorization.ToString();
@@ -50,9 +65,16 @@ namespace UrlShortener.Api.Controllers
                 userId = parsedUserId;
             }
 
-            var urls = await _urlService.GetUrlsAsync(userId);
+            var urls = await _urlService.GetUrlsAsync(userId, page, pageSize);
 
-            return Ok(urls.Select(ToResponse));
+            return Ok(new PagedResponse<ShortUrlResponse>
+            {
+                Items = urls.Items.Select(ToResponse).ToList(),
+                Page = urls.Page,
+                PageSize = urls.PageSize,
+                TotalCount = urls.TotalCount,
+                TotalPages = urls.TotalPages
+            });
         }
 
         [HttpGet("code/{shortCode}")]
@@ -122,7 +144,12 @@ namespace UrlShortener.Api.Controllers
 
             return Created(
                 $"/{shortUrl.ShortCode}",
-                ToResponse(shortUrl));
+                new ApiResponse<ShortUrlResponse>
+                {
+                    Success = true,
+                    Message = "URL başarıyla oluşturuldu.",
+                    Data = ToResponse(shortUrl)
+                });
         }
 
         [AllowAnonymous]
