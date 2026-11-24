@@ -123,11 +123,22 @@ namespace UrlShortener.Api.Controllers
 
             if (analytics == null)
             {
-                return NotFound("URL bulunamadı veya süresi dolmuş.");
+                return NotFound(new ApiResponse<UrlAnalyticsResponse>
+                {
+                    Success = false,
+                    Message = "URL bulunamadı veya süresi dolmuş.",
+                    Data = null
+                });
             }
 
-            return Ok(analytics);
+            return Ok(new ApiResponse<UrlAnalyticsResponse>
+            {
+                Success = true,
+                Message = "URL analizleri başarıyla getirildi.",
+                Data = analytics
+            });
         }
+
 
         [HttpDelete("{id:int}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]

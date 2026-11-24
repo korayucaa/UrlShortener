@@ -716,6 +716,7 @@ public class UrlControllerIntegrationTests
             Assert.True(click.ClickedAt <= DateTime.UtcNow);
         }
     }
+
     [Fact]
     public async Task GetUrlAnalytics_ShouldReturnDailyClickStatistics()
     {
@@ -740,6 +741,7 @@ public class UrlControllerIntegrationTests
 
             var url = await db.ShortUrls
                 .FirstAsync(u => u.ShortCode == "daily-test");
+
             Assert.Null(url.ExpiresAt);
 
             var today = DateTime.UtcNow.Date;
@@ -770,29 +772,34 @@ public class UrlControllerIntegrationTests
         // Analytics endpoint'ini çağır.
         var response = await client.GetAsync(
             "/api/Urls/analytics/daily-test");
+
         var responseBody = await response.Content.ReadAsStringAsync();
 
         Assert.True(
             response.StatusCode == HttpStatusCode.OK,
             $"Beklenen: 200 OK, Gelen: {(int)response.StatusCode} {response.StatusCode}. Yanıt: {responseBody}");
+
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         // JSON yanıtını kontrol et.
-        var json = await response.Content.ReadAsStringAsync();
-
-        using var document = System.Text.Json.JsonDocument.Parse(json);
+        using var document = System.Text.Json.JsonDocument.Parse(responseBody);
 
         var root = document.RootElement;
 
-        Assert.Equal(3, root.GetProperty("totalClicks").GetInt32());
+        Assert.True(root.GetProperty("success").GetBoolean());
 
-        var dailyClicks = root.GetProperty("dailyClicks");
+        var data = root.GetProperty("data");
+
+        Assert.Equal(3, data.GetProperty("totalClicks").GetInt32());
+
+        var dailyClicks = data.GetProperty("dailyClicks");
 
         Assert.Equal(2, dailyClicks.GetArrayLength());
 
         Assert.Equal(2, dailyClicks[0].GetProperty("clicks").GetInt32());
         Assert.Equal(1, dailyClicks[1].GetProperty("clicks").GetInt32());
     }
+
     [Fact]
     public async Task GetUrls_ShouldReturnOnlyCurrentUsersUrls_WhenAuthenticatedWithJwt()
     {
