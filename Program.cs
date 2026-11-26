@@ -15,6 +15,7 @@ using UrlShortener.Api.HealthChecks;
 using UrlShortener.Api.Models;
 using UrlShortener.Api.Services;
 using Serilog;
+using UrlShortener.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 // Serilog yapýlandýrmasý
@@ -185,58 +186,10 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 
 var app = builder.Build();
+app.UseMiddleware<GlobalExceptionMiddleware>();
 // HTTP isteklerini otomatik logla
 app.UseSerilogRequestLogging();
 
-// Global hata yönetimi
-// Global hata yönetimi
-app.UseExceptionHandler(errorApp =>
-{
-    errorApp.Run(async context =>
-    {
-        var exceptionFeature = context.Features
-            .Get<IExceptionHandlerFeature>();
-
-        var exception = exceptionFeature?.Error;
-
-        var logger = context.RequestServices
-            .GetRequiredService<ILogger<Program>>();
-
-        if (exception != null)
-        {
-            logger.LogError(
-                exception,
-                "Bir hata oluþtu.");
-        }
-
-        var statusCode = exception switch
-        {
-            ArgumentException => StatusCodes.Status400BadRequest,
-            _ => StatusCodes.Status500InternalServerError
-        };
-
-        context.Response.StatusCode = statusCode;
-        context.Response.ContentType = "application/json";
-
-        var message = statusCode == StatusCodes.Status400BadRequest
-            ? exception!.Message
-            : "Beklenmeyen bir hata oluþtu.";
-
-        await context.Response.WriteAsJsonAsync(new
-        {
-            status = statusCode,
-            message
-        });
-    });
-});
-
-// HTTP istek hattý
-//if (app.Environment.IsDevelopment())
-//{
-//    app.UseSwagger();
-//    app.UseSwaggerUI();
-//}
-//Belki geri açmam gerekir 
 if (app.Environment.IsDevelopment() ||
     app.Environment.IsEnvironment("Testing"))
 {
