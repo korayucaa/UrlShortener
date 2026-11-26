@@ -1,10 +1,15 @@
+using Asp.Versioning;
+using Asp.Versioning.ApiExplorer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Serilog;
 using StackExchange.Redis;
 using System.Text;
 using System.Threading.RateLimiting;
@@ -12,10 +17,9 @@ using UrlShortener.Api.Authentication;
 using UrlShortener.Api.Data;
 using UrlShortener.Api.Filters;
 using UrlShortener.Api.HealthChecks;
+using UrlShortener.Api.Middleware;
 using UrlShortener.Api.Models;
 using UrlShortener.Api.Services;
-using Serilog;
-using UrlShortener.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 // Serilog yapýlandýrmasý
@@ -31,6 +35,17 @@ builder.Host.UseSerilog((context, configuration) =>
 });
 // Servisler
 builder.Services.AddControllers();
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+})
+.AddApiExplorer(options =>
+ {
+     options.GroupNameFormat = "'v'VVV";
+     options.SubstituteApiVersionInUrl = true;
+ });
 // Health Checks
 var healthChecks = builder.Services.AddHealthChecks();
 
@@ -163,6 +178,10 @@ builder.Services.AddSwaggerGen(options =>
             Url = new Uri("https://github.com/korayucaa")
         }
     });
+    options.DocInclusionPredicate((docName, apiDesc) =>
+    {
+        return apiDesc.GroupName == docName;
+    });
 });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -186,7 +205,35 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 
 var app = builder.Build();
+
+var apiVersionDescriptionProvider =
+    app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
+app.UseRouting();
+
 app.UseMiddleware<GlobalExceptionMiddleware>();
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.Equals("/health", StringComparison.OrdinalIgnoreCase))
+    {
+        var healthCheckService = context.RequestServices
+            .GetRequiredService<HealthCheckService>();
+
+        var report = await healthCheckService.CheckHealthAsync();
+
+        context.Response.StatusCode =
+            report.Status == HealthStatus.Healthy ? 200 : 503;
+
+        await HealthCheckResponseWriter.WriteResponse(
+            context,
+            report);
+
+        return;
+    }
+
+    await next();
+});
+
 // HTTP isteklerini otomatik logla
 app.UseSerilogRequestLogging();
 
@@ -197,7 +244,15 @@ if (app.Environment.IsDevelopment() ||
 
     if (app.Environment.IsDevelopment())
     {
-        app.UseSwaggerUI();
+        app.UseSwaggerUI(options =>
+        {
+            foreach (var description in apiVersionDescriptionProvider.ApiVersionDescriptions)
+            {
+                options.SwaggerEndpoint(
+                    $"/swagger/{description.GroupName}/swagger.json",
+                    description.GroupName.ToUpperInvariant());
+            }
+        });
     }
 }
 if (!app.Environment.IsEnvironment("Testing"))
@@ -217,10 +272,6 @@ if (!app.Environment.IsEnvironment("Testing"))
 }
 app.UseRateLimiter();
 // Genel saðlýk kontrolü
-app.MapHealthChecks("/health", new HealthCheckOptions
-{
-    ResponseWriter = HealthCheckResponseWriter.WriteResponse
-});
 
 // Liveness: API çalýþýyor mu?
 app.MapHealthChecks("/health/live", new HealthCheckOptions
@@ -236,5 +287,6 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
                          check.Tags.Contains("cache"),
     ResponseWriter = HealthCheckResponseWriter.WriteResponse
 }); app.MapControllers();
+
 app.Run();
 public partial class Program { }

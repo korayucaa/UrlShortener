@@ -7,12 +7,14 @@ using UrlShortener.Api.Data;
 using UrlShortener.Api.DTOs;
 using UrlShortener.Api.Models;
 using UrlShortener.Api.Services;
+using Asp.Versioning;
 
 namespace UrlShortener.Api.Controllers
 {
     [Authorize]
     [ApiController]
-    [Route("api/[controller]")]
+    [ApiVersion(1.0)]
+    [Route("api/v{version:apiVersion}/[controller]")]
     public class UrlsController : ControllerBase
     {
         private readonly AppDbContext _context;
