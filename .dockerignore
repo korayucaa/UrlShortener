@@ -1,7 +1,30 @@
+
+# Build çýktýlarý
 bin/
 obj/
 .vs/
+
+# Git
 .git/
 .gitignore
+
+# Kullanýcý dosyalarý
 *.user
 *.suo
+
+# Ortam deðiþkenleri ve gizli bilgiler
+.env
+.env.*
+!.env.example
+
+# Geliþtirme ayarlarý
+appsettings.Development.json
+
+# Loglar
+logs/
+*.log
+
+# Test ve geçici dosyalar
+TestResults/
+*.tmp
+*.temp
